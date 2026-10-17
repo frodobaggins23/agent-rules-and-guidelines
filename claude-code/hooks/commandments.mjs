@@ -41,7 +41,13 @@ try {
 
     if (count % every === 0) {
         const text = readFileSync(commandmentsPath, 'utf8');
-        process.stdout.write(`Periodic reminder (message ${count}):\n\n${text}\n`);
+        process.stdout.write(JSON.stringify({
+            systemMessage: `Commandments reminder injected (message ${count}).`,
+            hookSpecificOutput: {
+                hookEventName: 'UserPromptSubmit',
+                additionalContext: `Periodic reminder (message ${count}):\n\n${text}`
+            }
+        }));
     }
 } catch (error) {
     // A reminder hook must never break the session.
