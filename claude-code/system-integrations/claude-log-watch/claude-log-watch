@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Watch the current Claude Code tool log and always show its last N lines.
+#
+# Usage: claude-log-watch [-n LINES] [-p] [-c] [DIR]
+#   -n LINES  lines to show (default 30)
+#   -p        pretty one-line-per-entry view (needs jq)
+#   -c        only shell commands (entries with "is_command": true)
+#   DIR       workspace to watch (default: current directory)
+#
+# Follows last-log.txt, so when a new Claude session starts it switches to the new log.
+# Uses inotifywait if installed (sudo apt install inotify-tools), otherwise polls every second.
+
+lines=30 pretty=0 only_cmd=0
+while getopts ":n:pch" opt; do
+  case "$opt" in
+    n) lines="$OPTARG" ;;
+    p) pretty=1 ;;
+    c) only_cmd=1 ;;
+    h) sed -n '2,12p' "$0"; exit 0 ;;
+    *) echo "Unknown option. Try -h." >&2; exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+dir="${1:-$PWD}"
+logdir="$dir/.claude-logs"
+pointer="$logdir/last-log.txt"
+
+if [[ ! -f "$pointer" ]]; then
+  echo "No $pointer found — nothing to watch." >&2
+  exit 1
+fi
+
+if (( pretty )) && ! command -v jq >/dev/null 2>&1; then
+  echo "-p needs jq (sudo apt install jq); showing raw lines." >&2
+  pretty=0
+fi
+
+render() {
+  local log="$1"
+  tail -n 20000 "$log" \
+    | { if (( only_cmd )); then grep '"is_command":true'; else cat; fi; } \
+    | tail -n "$lines" \
+    | { if (( pretty )); then
+          jq -Rr 'fromjson? |
+            (.ts[11:19]) + "  " +
+            if .event == "SessionStart" then "── session " + (.source // "") + " ──"
+            elif .is_command then "$ " + (.command | split("\n")[0])
+            else (.tool // "?") + "  " +
+                 ((.input.file_path // .input.path // .input.pattern
+                   // .input.url // .input.query // .input.description // "")
+                  | tostring | split("\n")[0])
+            end'
+        else cat; fi; }
+}
+
+wait_for_change() {
+  if command -v inotifywait >/dev/null 2>&1; then
+    inotifywait -qq -t 5 -e modify,create,moved_to "$logdir" 2>/dev/null
+  else
+    sleep 1
+  fi
+}
+
+trap 'echo; exit 0' INT TERM
+last_sig=""
+
+while :; do
+  [[ -f "$pointer" ]] || { echo "$pointer disappeared, exiting." >&2; exit 1; }
+  log="$logdir/$(head -n1 "$pointer")"
+  sig="$log $(stat -c '%s %Y' "$log" 2>/dev/null)"
+
+  if [[ "$sig" != "$last_sig" ]]; then
+    clear
+    printf '\e[2m%s — last %s%s lines (Ctrl+C to quit)\e[0m\n\n' \
+      "$(basename "$log")" "$lines" "$( (( only_cmd )) && echo ' command')"
+    [[ -f "$log" ]] && render "$log" || echo "(log file not created yet)"
+    last_sig="$sig"
+  fi
+
+  wait_for_change
+done

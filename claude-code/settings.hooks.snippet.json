@@ -1,14 +1,35 @@
 {
-    "hooks": {
-        "UserPromptSubmit": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "node \"$HOME/.claude/hooks/commandments.mjs\""
-                    }
-                ]
-            }
+   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/log-tools.sh"
+          }
         ]
-    }
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/log-tools.sh"
+          }
+        ]
+      }
+    ],
+     "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+                "type": "command",
+                "command": "node \"$HOME/.claude/hooks/commandments.mjs\""
+            }
+          ]
+        }
+    ]
+  }
 }
