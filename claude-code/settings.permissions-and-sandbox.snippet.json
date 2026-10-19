@@ -35,7 +35,8 @@
       "allowWrite": [
         "~/.npm",
         "~/.cache/vite",
-        "~/.cache/pip"
+        "~/.cache/pip",
+        "~/Code"
       ],
       "denyRead": [
         "~/.ssh",
@@ -48,9 +49,7 @@
         "~/Pictures",
         "~/Videos",
         "~/Desktop",
-        "~/Music",
-        "~/Documents/Githome/**/.env",
-        "~/Documents/Githome/**/.env.*"
+        "~/Music"
       ]
     },
       "network": {
